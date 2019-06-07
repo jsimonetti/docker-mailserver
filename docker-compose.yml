@@ -1,0 +1,94 @@
+version: '3'
+
+services:
+
+  antivirus:
+    image: jsimonetti/clamav:latest
+    restart: "unless-stopped"
+    volumes:
+      - ${DATA_ROOT}/clamav/data:/var/lib/clamav
+    networks:
+      frontend:
+
+  antispam:
+    image: jsimonetti/rspamd:latest
+    restart: "unless-stopped"
+    volumes:
+      - ${DATA_ROOT}/rspamd/data:/var/lib/rspamd
+    environment:
+      - RSPAMD_CONTROLLER_PASSWORD=${RSPAMD_CONTROLLER_PASSWORD}
+      - DNSSERVER=${DNSSERVER}:53:1
+    networks:
+      frontend:
+
+  dnsserver:
+    image: jsimonetti/unbound:latest
+    restart: "unless-stopped"
+    networks:
+      frontend:
+
+  redis:
+    image: redis:alpine
+    restart: "unless-stopped"
+    volumes:
+      - ${DATA_ROOT}/redis/data:/data
+    networks:
+      frontend:
+
+  webmail:
+    image: jsimonetti/rainloop:latest
+    restart: "unless-stopped"
+    volumes:
+      - ${DATA_ROOT}/rainloop/data:/rainloop/data
+    networks:
+      frontend:
+
+  mta:
+    image: jsimonetti/postfix:latest
+    restart: "unless-stopped"
+    ports:
+      - "${MTA_IP}:25:25/tcp"
+      - "${MTA_IP}:587:587/tcp"
+    volumes:
+      - ${DATA_ROOT}/postfix/config/main.cf:/etc/postfix/main.cf
+      - ${DATA_ROOT}/postfix/config/master.cf:/etc/postfix/master.cf
+      - ${DATA_ROOT}/postfix/files:/etc/mailserver
+      - ${DATA_ROOT}/postfix/certs:/etc/mailserver/certs
+      - ${DATA_ROOT}/postfix/cache:/var/lib/postfix/
+      - ${DATA_ROOT}/postfix/spool:/var/spool/postfix/
+    networks:
+      frontend:
+
+  lda:
+    image: jsimonetti/dovecot:latest
+    restart: "unless-stopped"
+    ports:
+      - "${LDA_IP}:143:143/tcp"
+      - "${LDA_IP}:993:993/tcp"
+      - "${LDA_IP}:4190:4190/tcp"
+    volumes:
+      - ${DATA_ROOT}/dovecot/vmail:/var/vmail
+      - ${DATA_ROOT}/dovecot/certs:/etc/dovecot/certs
+    environment:
+      - RSPAMD_CONTROLLER_HOST=${RSPAMD_CONTROLLER_HOST}
+      - RSPAMD_CONTROLLER_PASSWORD=${RSPAMD_CONTROLLER_PASSWORD}
+    networks:
+      frontend:
+        aliases:
+          - mail.pronoc.net
+
+  caldav:
+    image: jsimonetti/radicale:latest
+    restart: "unless-stopped"
+    volumes:
+      - ${DATA_ROOT}/radicale/data:/data
+    environment:
+      - RADICALE_IMAP_HOST=${RADICALE_IMAP_HOST}
+    networks:
+      frontend:
+
+
+networks:
+  frontend:
+    external:
+      name: br1
