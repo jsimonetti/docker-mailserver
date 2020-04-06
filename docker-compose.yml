@@ -5,31 +5,42 @@ services:
   antivirus:
     image: jsimonetti/clamav:latest
     restart: "unless-stopped"
+    hostname: antivirus
     volumes:
       - ${DATA_ROOT}/clamav/data:/var/lib/clamav
     networks:
       frontend:
+    depends_on:
+      - dnsserver
+    dns: ${DNSSERVER}
 
   antispam:
     image: jsimonetti/rspamd:latest
     restart: "unless-stopped"
+    hostname: antispam
     volumes:
       - ${DATA_ROOT}/rspamd/data:/var/lib/rspamd
     environment:
       - RSPAMD_CONTROLLER_PASSWORD=${RSPAMD_CONTROLLER_PASSWORD}
-      - DNSSERVER=${DNSSERVER}:53:1
+        #      - DNSSERVER=${DNSSERVER}
     networks:
       frontend:
+    depends_on:
+      - dnsserver
+    dns: ${DNSSERVER}
 
   dnsserver:
     image: jsimonetti/unbound:latest
     restart: "unless-stopped"
+    hostname: dnsserver
     networks:
       frontend:
+        ipv4_address: 10.169.249.250
 
   redis:
     image: redis:alpine
     restart: "unless-stopped"
+    hostname: redis
     volumes:
       - ${DATA_ROOT}/redis/data:/data
     networks:
@@ -38,14 +49,19 @@ services:
   webmail:
     image: jsimonetti/rainloop:latest
     restart: "unless-stopped"
+    hostname: webmail
     volumes:
       - ${DATA_ROOT}/rainloop/data:/rainloop/data
     networks:
       frontend:
+    depends_on:
+      - dnsserver
+    dns: ${DNSSERVER}
 
   mta:
     image: jsimonetti/postfix:latest
     restart: "unless-stopped"
+    hostname: mta
     ports:
       - "${MTA_IP}:25:25/tcp"
       - "${MTA_IP}:587:587/tcp"
@@ -58,10 +74,14 @@ services:
       - ${DATA_ROOT}/postfix/spool:/var/spool/postfix/
     networks:
       frontend:
+    depends_on:
+      - dnsserver
+    dns: ${DNSSERVER}
 
   lda:
     image: jsimonetti/dovecot:latest
     restart: "unless-stopped"
+    hostname: lda
     ports:
       - "${LDA_IP}:143:143/tcp"
       - "${LDA_IP}:993:993/tcp"
@@ -76,16 +96,23 @@ services:
       frontend:
         aliases:
           - mail.pronoc.net
+    depends_on:
+      - dnsserver
+    dns: ${DNSSERVER}
 
   caldav:
     image: jsimonetti/radicale:latest
     restart: "unless-stopped"
+    hostname: caldav
     volumes:
       - ${DATA_ROOT}/radicale/data:/data
     environment:
       - RADICALE_IMAP_HOST=${RADICALE_IMAP_HOST}
     networks:
       frontend:
+    depends_on:
+      - dnsserver
+    dns: ${DNSSERVER}
 
 
 networks:
